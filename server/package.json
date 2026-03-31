@@ -1,0 +1,14 @@
+﻿{
+    "name": "readit-auth-server",
+    "version": "1.0.0",
+    "description": "minimal server for the home assignment",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "express": "^4.18.2",
+        "jsonwebtoken": "^9.0.2"
+    }
+}

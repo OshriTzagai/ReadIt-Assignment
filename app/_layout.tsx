@@ -1,24 +1,55 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+﻿import 'react-native-reanimated';
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { Provider } from 'react-redux';
+import { store } from '@/store/index';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { bootstrapAuth } from '@/store/authSlice';
+import { bootstrapBookmarks } from '@/store/bookmarkSlice';
+import OfflineBanner from '@/components/OfflineBanner';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function AppNavigator() {
+  const dispatch = useAppDispatch();
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
+  const bootstrapped = useAppSelector((s) => s.auth.bootstrapped);
+  const segments = useSegments();
+  const router = useRouter();
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+  useEffect(() => {
+    dispatch(bootstrapAuth());
+    dispatch(bootstrapBookmarks());
+  }, [dispatch]);
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    if (!bootstrapped) return;
+    const inAuthGroup = segments[0] === '(auth)';
+    if (!isAuthenticated && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (isAuthenticated && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [bootstrapped, isAuthenticated, segments, router]);
+
+  if (!bootstrapped) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <>
       <Stack>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
       </Stack>
+      <OfflineBanner />
       <StatusBar style="auto" />
-    </ThemeProvider>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <Provider store={store}>
+      <AppNavigator />
+    </Provider>
   );
 }

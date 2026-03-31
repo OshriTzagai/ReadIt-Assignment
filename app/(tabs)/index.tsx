@@ -1,98 +1,138 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useCallback, useEffect } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { loadFeed, loadNextPage, refreshFeed } from '@/store/feedSlice';
+import ArticleRow, { ITEM_HEIGHT } from '@/components/ArticleRow';
+import SkeletonRow from '@/components/SkeletonRow';
+import { colors, spacing, fonts } from '@/theme/index';
+import type { HNItem } from '@/utils/types';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const SKELETON_DATA = Array.from({ length: 10 }, (_, i) => `sk-${i}`);
 
-export default function HomeScreen() {
+export default function FeedScreen() {
+  const dispatch = useAppDispatch();
+  const items = useAppSelector((s) => s.feed.items);
+  const status = useAppSelector((s) => s.feed.status);
+  const hasMore = useAppSelector((s) => s.feed.hasMore);
+  const error = useAppSelector((s) => s.feed.error);
+  const scheme = useColorScheme() ?? 'light';
+  const theme = colors[scheme];
+
+  useEffect(() => {
+    dispatch(loadFeed());
+  }, [dispatch]);
+
+  const handleEndReached = useCallback(() => {
+    if (status === 'succeeded' && hasMore) {
+      dispatch(loadNextPage());
+    }
+  }, [dispatch, status, hasMore]);
+
+  const handleRefresh = useCallback(() => {
+    dispatch(refreshFeed());
+  }, [dispatch]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: HNItem }) => <ArticleRow item={item} />,
+    [],
+  );
+
+  const keyExtractor = useCallback((item: HNItem) => String(item.id), []);
+
+  const getItemLayout = useCallback(
+    (_: ArrayLike<HNItem> | null | undefined, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    [],
+  );
+
+  const Separator = useCallback(
+    () => (
+      <View
+        style={[styles.separator, { backgroundColor: theme.border }]}
+      />
+    ),
+    [theme.border],
+  );
+
+  const Footer = useCallback(() => {
+    if (status !== 'paginating') return null;
+    return (
+      <View style={styles.footer}>
+        <ActivityIndicator size="small" color={theme.tint} />
+      </View>
+    );
+  }, [status, theme.tint]);
+
+  const isLoading = status === 'loading';
+  const isRefreshing = status === 'refreshing';
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
+        <View>
+          <Text style={[styles.title, { color: theme.tint }]}>ReadIt</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Top Stories</Text>
+        </View>
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {error && status === 'failed' ? (
+        <View style={styles.center}>
+          <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+        </View>
+      ) : isLoading ? (
+        <FlatList
+          data={SKELETON_DATA}
+          renderItem={() => <SkeletonRow />}
+          keyExtractor={(key) => key}
+          scrollEnabled={false}
+          ItemSeparatorComponent={Separator}
+        />
+      ) : (
+        <FlatList
+          data={items}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          getItemLayout={getItemLayout}
+          windowSize={5}
+          maxToRenderPerBatch={10}
+          initialNumToRender={10}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.3}
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          ListFooterComponent={Footer}
+          ItemSeparatorComponent={Separator}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safe: { flex: 1 },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  title: { fontSize: fonts.sizes.xl, fontWeight: '700' },
+  subtitle: { fontSize: fonts.sizes.xs, fontWeight: '400', marginTop: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  errorText: { fontSize: fonts.sizes.md, textAlign: 'center' },
+  footer: { paddingVertical: spacing.lg, alignItems: 'center' },
+  separator: { height: StyleSheet.hairlineWidth, marginLeft: spacing.lg },
 });
