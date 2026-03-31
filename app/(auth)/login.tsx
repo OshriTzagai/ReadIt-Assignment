@@ -23,6 +23,8 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { login } from '@/store/authSlice';
 import { colors, spacing, fonts } from '@/theme/index';
 
+
+
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
