@@ -6,7 +6,7 @@ const app = express();
 const SECRET = 'readit-secret-do-not-use-in-prod';
 const PORT = 3001;
 const USERS = {
-    'test': 'test'
+    'user@readit.dev': 'password123'
 };
 
 app.use(cors());
